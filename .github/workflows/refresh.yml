@@ -1,0 +1,36 @@
+name: Refresh Instagram token
+
+# Runs weekly so the 60 day token never lapses.
+# Needs a fine-grained Personal Access Token stored as the GH_PAT secret,
+# with Repository permissions -> Secrets -> Read and write on this repo.
+# The default GITHUB_TOKEN cannot write secrets, which is why GH_PAT is required.
+on:
+  schedule:
+    - cron: "0 6 * * 1"   # every Monday at 06:00 UTC
+  workflow_dispatch:
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install requests python-dotenv
+
+      - name: Exchange for a fresh token
+        id: token
+        env:
+          IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
+          FB_APP_ID: ${{ secrets.FB_APP_ID }}
+          FB_APP_SECRET: ${{ secrets.FB_APP_SECRET }}
+        run: echo "value=$(python ig_agent.py --refresh)" >> "$GITHUB_OUTPUT"
+
+      - name: Write it back to the secret
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: gh secret set IG_ACCESS_TOKEN --body "${{ steps.token.outputs.value }}"

@@ -1,0 +1,43 @@
+name: Post to Instagram
+
+# Trigger this by hand from the Actions tab.
+# 1. Commit your image into the inbox/ folder and push.
+# 2. Run this workflow, set image to the filename and topic to the angle.
+on:
+  workflow_dispatch:
+    inputs:
+      image:
+        description: "Image filename inside inbox/ (e.g. shot.jpg)"
+        required: true
+      topic:
+        description: "What the caption should be about"
+        required: true
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    # Give yourself time to tap Approve. Keep this above APPROVAL_TIMEOUT in the script.
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install requests anthropic boto3 python-dotenv
+
+      - name: Generate, approve, publish
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
+          IG_USER_ID: ${{ secrets.IG_USER_ID }}
+          S3_BUCKET: ${{ secrets.S3_BUCKET }}
+          S3_ENDPOINT: ${{ secrets.S3_ENDPOINT }}
+          S3_ACCESS_KEY: ${{ secrets.S3_ACCESS_KEY }}
+          S3_SECRET_KEY: ${{ secrets.S3_SECRET_KEY }}
+          S3_PUBLIC_BASE: ${{ secrets.S3_PUBLIC_BASE }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python ig_agent.py "inbox/${{ inputs.image }}" "${{ inputs.topic }}"
