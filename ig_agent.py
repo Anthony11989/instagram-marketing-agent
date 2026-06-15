@@ -1,5 +1,5 @@
 """
-Instagram posting agent with Telegram approval.
+Instagram posting agent with Telegram approval (Instagram Login API).
 
 Normal flow (one GitHub Actions run does all of it):
   1. You supply a local image and a topic.
@@ -10,17 +10,15 @@ Normal flow (one GitHub Actions run does all of it):
 
 Token refresh:
   python ig_agent.py --refresh
-  Prints a fresh 60 day token to stdout. The refresh workflow writes it back.
+  Prints a fresh 60 day Instagram token to stdout. The refresh workflow writes it back.
 
 Setup:
   pip install requests anthropic boto3 python-dotenv
 
   .env (local) or GitHub Actions Secrets (cloud):
     ANTHROPIC_API_KEY=...
-    IG_ACCESS_TOKEN=...        long-lived user token (60 day)
-    IG_USER_ID=...             your Instagram business account id
-    FB_APP_ID=...              for token refresh
-    FB_APP_SECRET=...          for token refresh
+    IG_ACCESS_TOKEN=...        long-lived Instagram user token (60 day)
+    IG_USER_ID=...             your Instagram user id
     S3_BUCKET=...              your R2 bucket name
     S3_ENDPOINT=...            https://<accountid>.r2.cloudflarestorage.com
     S3_ACCESS_KEY=...          R2 access key id
@@ -42,14 +40,13 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-GRAPH_VERSION = "v21.0"
-GRAPH_BASE = f"https://graph.facebook.com/{GRAPH_VERSION}"
+GRAPH_VERSION = "v23.0"
+GRAPH_BASE = f"https://graph.instagram.com/{GRAPH_VERSION}"
+REFRESH_URL = "https://graph.instagram.com/refresh_access_token"
 
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY")
 IG_ACCESS_TOKEN = os.environ.get("IG_ACCESS_TOKEN")
 IG_USER_ID = os.environ.get("IG_USER_ID")
-FB_APP_ID = os.environ.get("FB_APP_ID")
-FB_APP_SECRET = os.environ.get("FB_APP_SECRET")
 
 TG_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 TG_CHAT = os.environ.get("TELEGRAM_CHAT_ID")
@@ -207,16 +204,10 @@ def publish(creation_id: str) -> str:
 
 
 def refresh_token() -> str:
-    if not (FB_APP_ID and FB_APP_SECRET):
-        raise RuntimeError("Set FB_APP_ID and FB_APP_SECRET to refresh the token")
+    """Extend the long-lived Instagram token for another 60 days."""
     resp = requests.get(
-        f"{GRAPH_BASE}/oauth/access_token",
-        params={
-            "grant_type": "fb_exchange_token",
-            "client_id": FB_APP_ID,
-            "client_secret": FB_APP_SECRET,
-            "fb_exchange_token": IG_ACCESS_TOKEN,
-        },
+        REFRESH_URL,
+        params={"grant_type": "ig_refresh_token", "access_token": IG_ACCESS_TOKEN},
         timeout=30,
     )
     resp.raise_for_status()
@@ -225,7 +216,6 @@ def refresh_token() -> str:
 
 def main() -> None:
     if len(sys.argv) == 2 and sys.argv[1] == "--refresh":
-        # Print only the token so the workflow can capture it.
         print(refresh_token())
         return
 
