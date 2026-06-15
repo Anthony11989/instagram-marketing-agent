@@ -1,8 +1,5 @@
 name: Post to Instagram
 
-# Trigger this by hand from the Actions tab.
-# 1. Commit your image into the inbox/ folder and push.
-# 2. Run this workflow, set image to the filename and topic to the angle.
 on:
   workflow_dispatch:
     inputs:
@@ -16,7 +13,6 @@ on:
 jobs:
   post:
     runs-on: ubuntu-latest
-    # Give yourself time to tap Approve. Keep this above APPROVAL_TIMEOUT in the script.
     timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
