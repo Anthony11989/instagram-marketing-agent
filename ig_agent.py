@@ -1,38 +1,28 @@
 """
 Instagram posting agent with Telegram approval (Instagram Login API).
 
+Captions are written by Claude, which LOOKS AT your images, reads your saved
+business profile (business.md), and works in the per-post direction you give it.
+
 Supports a single image OR a carousel of 2 to 10 images in one post.
 
-Normal flow (one GitHub Actions run does all of it):
-  1. You supply one or more local images and a topic.
-  2. Claude writes a caption.
-  3. The images are uploaded to Cloudflare R2 to get public HTTPS URLs.
-  4. The photos and caption are sent to you in Telegram with Approve / Reject buttons.
-  5. The run waits for your tap. On Approve it publishes. On Reject or timeout it stops.
+Flow (one GitHub Actions run does all of it):
+  1. You supply one or more images and a per-post direction / call to action.
+  2. Images upload to Cloudflare R2 to get public HTTPS URLs.
+  3. Claude views the images + business.md + your direction and writes a caption.
+  4. Photos and caption go to Telegram with Approve / Reject buttons.
+  5. On Approve it publishes. On Reject or timeout it stops.
 
 Token refresh:
   python ig_agent.py --refresh
-  Prints a fresh 60 day Instagram token to stdout. The refresh workflow writes it back.
 
 Setup:
   pip install requests anthropic boto3 python-dotenv
 
-  .env (local) or GitHub Actions Secrets (cloud):
-    ANTHROPIC_API_KEY=...
-    IG_ACCESS_TOKEN=...        long-lived Instagram user token (60 day)
-    IG_USER_ID=...             your Instagram user id
-    S3_BUCKET=...              your R2 bucket name
-    S3_ENDPOINT=...            https://<accountid>.r2.cloudflarestorage.com
-    S3_ACCESS_KEY=...          R2 access key id
-    S3_SECRET_KEY=...          R2 secret access key
-    S3_PUBLIC_BASE=...         your r2.dev public URL, e.g. https://pub-xxxx.r2.dev
-    TELEGRAM_BOT_TOKEN=...     from BotFather
-    TELEGRAM_CHAT_ID=...       your chat id with the bot
-
 Run locally:
-  Single image:  python ig_agent.py image.jpg "topic"
-  Carousel:      python ig_agent.py "a.jpg,b.jpg,c.jpg" "topic"
-  The order you list the files is the order they appear in the post.
+  Single:    python ig_agent.py image.jpg "weekend brunch, book a table"
+  Carousel:  python ig_agent.py "a.jpg,b.jpg,c.jpg" "new tasting menu, link in bio"
+  The order you list files is the order they appear in the post.
 """
 
 import os
@@ -56,9 +46,10 @@ TG_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 TG_CHAT = os.environ.get("TELEGRAM_CHAT_ID")
 TG_BASE = f"https://api.telegram.org/bot{TG_TOKEN}" if TG_TOKEN else None
 
-# How long the run waits for your tap before giving up, in seconds.
 APPROVAL_TIMEOUT = 30 * 60
 
+# Fallback voice if business.md is missing. business.md is the better place to
+# describe your business; this just sets the baseline writing style.
 BRAND_VOICE = (
     "Friendly, concrete, and useful. Short sentences. "
     "No hype words. End with one clear call to action. "
@@ -66,25 +57,43 @@ BRAND_VOICE = (
 )
 
 
-def generate_caption(topic: str) -> str:
+def load_business_profile() -> str:
+    for name in ("business.md", "business.txt"):
+        if os.path.exists(name):
+            with open(name, encoding="utf-8") as f:
+                return f.read().strip()
+    return ""
+
+
+def generate_caption(image_urls, direction: str) -> str:
+    """Claude views the images, reads the business profile, applies the direction."""
     from anthropic import Anthropic
 
     client = Anthropic(api_key=ANTHROPIC_API_KEY)
+    profile = load_business_profile()
+
+    content = [{"type": "image", "source": {"type": "url", "url": u}} for u in image_urls]
+    instruction = (
+        (f"About the business:\n{profile}\n\n" if profile else "")
+        + "The image(s) above are what will be posted together. Look closely at what "
+        + "they actually show and write about that specifically, not generically.\n\n"
+        + f"Direction for this post (angle, offer, or call to action): {direction}\n\n"
+        + "Write one Instagram caption that fits the business, reflects what is genuinely "
+        + "in the images, and naturally works in the call to action. Return only the "
+        + "caption text, nothing else."
+    )
+    content.append({"type": "text", "text": instruction})
+
     msg = client.messages.create(
         model="claude-sonnet-4-6",
-        max_tokens=400,
-        system=f"You write Instagram captions for a business. Voice: {BRAND_VOICE}",
-        messages=[{
-            "role": "user",
-            "content": f"Write one Instagram caption about: {topic}. "
-                       f"Return only the caption text, nothing else.",
-        }],
+        max_tokens=500,
+        system=f"You write Instagram captions for a business. Baseline voice: {BRAND_VOICE}",
+        messages=[{"role": "user", "content": content}],
     )
     return "".join(b.text for b in msg.content if b.type == "text").strip()
 
 
 def upload_image(local_path: str) -> str:
-    """Upload to Cloudflare R2 and return a public HTTPS URL."""
     import boto3
 
     bucket = os.environ["S3_BUCKET"]
@@ -107,7 +116,6 @@ def upload_image(local_path: str) -> str:
 
 
 def resolve_paths(image_arg: str):
-    """Turn a comma-separated filename list into real file paths under inbox/."""
     names = [n.strip() for n in image_arg.split(",") if n.strip()]
     paths = []
     for n in names:
@@ -117,7 +125,6 @@ def resolve_paths(image_arg: str):
 
 
 def request_approval(image_urls, caption: str, tag: str) -> None:
-    """Send the photo(s) and caption to Telegram with Approve / Reject buttons."""
     if len(image_urls) == 1:
         requests.post(
             f"{TG_BASE}/sendPhoto",
@@ -149,10 +156,6 @@ def request_approval(image_urls, caption: str, tag: str) -> None:
 
 
 def wait_for_approval(tag: str, timeout_s: int = APPROVAL_TIMEOUT):
-    """
-    Long-poll Telegram for the button tap that matches this run's tag.
-    Returns True (approve), False (reject), or None (timed out).
-    """
     deadline = time.time() + timeout_s
     offset = None
     while time.time() < deadline:
@@ -177,7 +180,6 @@ def wait_for_approval(tag: str, timeout_s: int = APPROVAL_TIMEOUT):
             if data == f"reject:{tag}":
                 _notify("Rejected. Nothing posted.")
                 return False
-            # A tap from an older post. Ignore it and keep waiting.
     _notify("Approval timed out. Nothing posted.")
     return None
 
@@ -191,7 +193,6 @@ def _notify(text: str) -> None:
 
 
 def create_container(image_url: str, caption: str) -> str:
-    """Single-image container."""
     resp = requests.post(
         f"{GRAPH_BASE}/{IG_USER_ID}/media",
         data={"image_url": image_url, "caption": caption, "access_token": IG_ACCESS_TOKEN},
@@ -202,7 +203,6 @@ def create_container(image_url: str, caption: str) -> str:
 
 
 def create_carousel_item(image_url: str) -> str:
-    """One child image of a carousel."""
     resp = requests.post(
         f"{GRAPH_BASE}/{IG_USER_ID}/media",
         data={
@@ -217,7 +217,6 @@ def create_carousel_item(image_url: str) -> str:
 
 
 def create_carousel_container(child_ids, caption: str) -> str:
-    """The parent carousel container that ties the children together."""
     resp = requests.post(
         f"{GRAPH_BASE}/{IG_USER_ID}/media",
         data={
@@ -260,7 +259,6 @@ def publish(creation_id: str) -> str:
 
 
 def refresh_token() -> str:
-    """Extend the long-lived Instagram token for another 60 days."""
     resp = requests.get(
         REFRESH_URL,
         params={"grant_type": "ig_refresh_token", "access_token": IG_ACCESS_TOKEN},
@@ -276,10 +274,10 @@ def main() -> None:
         return
 
     if len(sys.argv) < 3:
-        print('Usage: python ig_agent.py "<image or a.jpg,b.jpg,c.jpg>" "<topic>"')
+        print('Usage: python ig_agent.py "<image or a.jpg,b.jpg,c.jpg>" "<direction / CTA>"')
         sys.exit(1)
 
-    image_arg, topic = sys.argv[1], sys.argv[2]
+    image_arg, direction = sys.argv[1], sys.argv[2]
     paths = resolve_paths(image_arg)
     if not paths:
         print("No image filenames given.")
@@ -290,11 +288,11 @@ def main() -> None:
 
     tag = uuid.uuid4().hex
 
-    print("Generating caption...")
-    caption = generate_caption(topic)
-
     print(f"Uploading {len(paths)} image(s) to R2...")
     image_urls = [upload_image(p) for p in paths]
+
+    print("Asking Claude to view the images and write the caption...")
+    caption = generate_caption(image_urls, direction)
 
     print("Sending to Telegram for approval...")
     request_approval(image_urls, caption, tag)
