@@ -3,14 +3,24 @@ name: Post to Instagram
 on:
   workflow_dispatch:
     inputs:
-      image:
-        description: "Filename(s) in inbox/, comma-separated for a carousel (e.g. a.jpg,b.jpg)"
+      mode:
+        description: "Post type"
         required: true
+        type: choice
+        default: "photo"
+        options:
+          - "photo"
+          - "card_stat"
+          - "card_atm"
+      image:
+        description: "photo mode only: filename(s) in inbox/, comma-separated for carousel"
+        required: false
+        default: ""
       topic:
-        description: "Direction / CTA for the caption"
+        description: "Direction or CTA for the post"
         required: true
       overlay:
-        description: "Draw text overlay on the images?"
+        description: "photo mode only: draw branded text overlay on images?"
         required: true
         type: choice
         default: "no"
@@ -30,7 +40,17 @@ jobs:
           python-version: "3.12"
 
       - name: Install dependencies
-        run: pip install requests anthropic boto3 python-dotenv pillow
+        run: pip install requests anthropic boto3 python-dotenv pillow numpy
+
+      - name: Download brand fonts
+        run: |
+          mkdir -p fonts
+          curl -sL -o fonts/PlayfairDisplay.ttf \
+            "https://raw.githubusercontent.com/google/fonts/main/ofl/playfairdisplay/PlayfairDisplay%5Bwght%5D.ttf"
+          curl -sL -o fonts/DMSans.ttf \
+            "https://raw.githubusercontent.com/google/fonts/main/ofl/dmsans/DMSans%5Bopsz%2Cwght%5D.ttf"
+          echo "Fonts downloaded:"
+          ls -lh fonts/
 
       - name: Generate, approve, publish
         env:
@@ -44,4 +64,9 @@ jobs:
           S3_PUBLIC_BASE: ${{ secrets.S3_PUBLIC_BASE }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-        run: python ig_agent.py "inbox/${{ inputs.image }}" "${{ inputs.topic }}" "${{ inputs.overlay }}"
+        run: |
+          python ig_agent.py \
+            "inbox/${{ inputs.image }}" \
+            "${{ inputs.topic }}" \
+            "${{ inputs.mode }}" \
+            "${{ inputs.overlay }}"
