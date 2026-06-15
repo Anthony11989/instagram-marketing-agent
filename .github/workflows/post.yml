@@ -4,11 +4,19 @@ on:
   workflow_dispatch:
     inputs:
       image:
-        description: "Image filename inside inbox/ (e.g. shot.jpg)"
+        description: "Filename(s) in inbox/, comma-separated for a carousel (e.g. a.jpg,b.jpg)"
         required: true
       topic:
-        description: "What the caption should be about"
+        description: "Direction / CTA for the caption"
         required: true
+      overlay:
+        description: "Draw text overlay on the images?"
+        required: true
+        type: choice
+        default: "no"
+        options:
+          - "no"
+          - "yes"
 
 jobs:
   post:
@@ -22,7 +30,7 @@ jobs:
           python-version: "3.12"
 
       - name: Install dependencies
-        run: pip install requests anthropic boto3 python-dotenv
+        run: pip install requests anthropic boto3 python-dotenv pillow
 
       - name: Generate, approve, publish
         env:
@@ -36,4 +44,4 @@ jobs:
           S3_PUBLIC_BASE: ${{ secrets.S3_PUBLIC_BASE }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-        run: python ig_agent.py "inbox/${{ inputs.image }}" "${{ inputs.topic }}"
+        run: python ig_agent.py "inbox/${{ inputs.image }}" "${{ inputs.topic }}" "${{ inputs.overlay }}"
