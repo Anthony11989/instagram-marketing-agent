@@ -9,25 +9,24 @@ operators, never corporate, no hype words, and no emojis.
 
 ## What we are
 We are hospitality operators who build the systems venues actually need. Our flagship
-product is BarLedger, the liquor, beer, and wine (LBW) inventory system, with food
-inventory too. We also consult on staff systems, financial auditing, process
-optimization, menu engineering, and growth strategy. Everything comes from real floor
-experience, not theory. We sell worldwide.
+product is BarLedger, the liquor, beer, and wine (LBW) inventory system. We also consult 
+on staff systems, financial auditing, process optimization, menu engineering, and growth 
+strategy. Everything comes from real floor experience, not theory. We sell worldwide.
 
 ## What BarLedger does
-- Counts liquor, wine, beer, and non-alcoholic stock fast with barcode and QR scanning
+- Counts liquor, wine, beer, and non-alcoholic stock fast with barcode scanning
 - Runs on your local network with a mobile scanner
 - Tracks breakage, waste, monthly COGS, and variance
-- Exports clean PDF and data reports and emails them automatically
+- Exports clean PDF and data reports
 - Costs custom and batched cocktails so you know your true pour cost
-- POS CSV import (Toast, Square) and multi-location support on higher plans
+- POS CSV import (Toast, Square) and multi-location support on higher plans (not yet implimented but in development)
 
 ## Who we are talking to
 Bar and restaurant owners, general managers, beverage directors, and multi-venue groups
 and hotels. People tired of losing time and money to bad inventory.
 
 ## Problems we solve (lead with these)
-- Hours lost counting bottles by hand
+- Hours lost counting bottles and writing down by hand
 - Shrinkage, theft, and unexplained variance eating into profit
 - Not knowing true pour cost or COGS
 - Messy spreadsheets that fall apart across shifts and locations
