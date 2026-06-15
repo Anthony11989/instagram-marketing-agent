@@ -4,29 +4,47 @@ XL for Hospitality (Excel for Hospitality & Consulting LLC) makes BarLedger, an
 inventory and cost-control system for bars and restaurants. This file guides every
 Instagram caption and overlay.
 
-Voice: write as the company ("we"), clean and practical, operators talking to
-operators, never corporate, no hype words, and no emojis.
+Voice: write as the company ("we"). Confident, refined, and concrete, premium but
+plain-spoken, operators talking to operators. No hype, no fluff, no emojis. Short,
+assured sentences that match a dark, understated luxury brand.
+
+## Brand identity (visual)
+Use this whenever generating on-image text or a branded card.
+- Aesthetic: dark, premium, understated luxury. Confident and clean, never loud or busy.
+- Backgrounds: near-black (#0a0a0a, #0d0d0d, or #111111).
+- Accent: gold (#C9A84C), with a lighter gold highlight (#E8C97A).
+- Fonts: Playfair Display (serif) for headlines and emphasis, DM Sans for body. Both are
+  free Google Fonts. (The live website falls back to Georgia for headings, but generated
+  images should use real Playfair Display.)
+- Text colors: white (#ffffff) for headings; warm off-white around 70% opacity
+  (rgba(232,228,220,0.7)) for body; about 40% for small muted labels.
+- Eyebrow labels: small, uppercase, wide letter-spacing, gold.
+- Buttons and callouts: gold fill, dark text, uppercase, bold, slight letter-spacing,
+  small 3px rounded corners.
+- Logo: the XL for Hospitality / BarLedger mark, placed cleanly. Light version for dark
+  images, dark version for light images. (Clean transparent PNG still needed.)
 
 ## What we are
 We are hospitality operators who build the systems venues actually need. Our flagship
-product is BarLedger, the liquor, beer, and wine (LBW) inventory system. We also consult 
-on staff systems, financial auditing, process optimization, menu engineering, and growth 
-strategy. Everything comes from real floor experience, not theory. We sell worldwide.
+product is BarLedger, the liquor, beer, and wine (LBW) inventory system, with food
+inventory too. We also consult on staff systems, financial auditing, process
+optimization, menu engineering, and growth strategy. Everything comes from real floor
+experience, not theory. We sell worldwide.
 
 ## What BarLedger does
-- Counts liquor, wine, beer, and non-alcoholic stock fast with barcode scanning
+- Counts liquor, wine, beer, and non-alcoholic stock fast with barcode and QR scanning
 - Runs on your local network with a mobile scanner
 - Tracks breakage, waste, monthly COGS, and variance
-- Exports clean PDF and data reports
+- Exports clean PDF and data reports and emails them automatically
 - Costs custom and batched cocktails so you know your true pour cost
-- POS CSV import (Toast, Square) and multi-location support on higher plans (not yet implimented but in development)
+- POS CSV import (Toast, Square) and multi-location support on higher plans
 
 ## Who we are talking to
 Bar and restaurant owners, general managers, beverage directors, and multi-venue groups
 and hotels. People tired of losing time and money to bad inventory.
 
 ## Problems we solve (lead with these)
-- Hours lost counting bottles and writing down by hand
+- Hours lost counting bottles by hand
 - Shrinkage, theft, and unexplained variance eating into profit
 - Not knowing true pour cost or COGS
 - Messy spreadsheets that fall apart across shifts and locations
@@ -73,7 +91,7 @@ alternative: "Book a free demo, link in bio."
   annual 2-months-free billing. Promise nothing beyond those.
 - Never say the trial needs no credit card or activation; getting started means buying
   the activation code, with the first 14 days free.
-- No emojis no em dash and use other words other than clarity
+- No emojis.
 
 ## Hashtags to draw from (pick 3 to 5 that fit each post)
 #barmanagement #barinventory #pourcost #beveragecost #restaurantmanagement #hospitality
