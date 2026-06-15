@@ -73,7 +73,7 @@ alternative: "Book a free demo, link in bio."
   annual 2-months-free billing. Promise nothing beyond those.
 - Never say the trial needs no credit card or activation; getting started means buying
   the activation code, with the first 14 days free.
-- No emojis.
+- No emojis no em dash and use other words other than clarity
 
 ## Hashtags to draw from (pick 3 to 5 that fit each post)
 #barmanagement #barinventory #pourcost #beveragecost #restaurantmanagement #hospitality
