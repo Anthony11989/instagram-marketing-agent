@@ -1,12 +1,8 @@
 name: Refresh Instagram token
 
-# Runs weekly so the 60 day token never lapses.
-# Needs a fine-grained Personal Access Token stored as the GH_PAT secret,
-# with Repository permissions -> Secrets -> Read and write on this repo.
-# The default GITHUB_TOKEN cannot write secrets, which is why GH_PAT is required.
 on:
   schedule:
-    - cron: "0 6 * * 1"   # every Monday at 06:00 UTC
+    - cron: "0 6 * * 1"
   workflow_dispatch:
 
 jobs:
