@@ -173,6 +173,27 @@ def add_overlay(local_path: str, text: str) -> str:
     return out
 
 
+def normalize_for_ig(local_path: str, target_w: int = 1080, target_h: int = 1350) -> str:
+    """Fit the image onto a 4:5 canvas (1080x1350) with padding so Instagram always
+    accepts it and a carousel stays consistent. Nothing is cropped. Returns new path."""
+    from PIL import Image
+    img = Image.open(local_path).convert("RGB")
+    bg = img.getpixel((0, 0))
+    img.thumbnail((target_w, target_h), Image.LANCZOS)
+    canvas = Image.new("RGB", (target_w, target_h), bg)
+    canvas.paste(img, ((target_w - img.width) // 2, (target_h - img.height) // 2))
+    out = local_path.rsplit(".", 1)[0] + "_ig.jpg"
+    canvas.save(out, "JPEG", quality=90)
+    return out
+
+
+def _check(resp):
+    """Raise with the API's actual message so errors are readable in the log."""
+    if not resp.ok:
+        raise RuntimeError(f"{resp.status_code} error from {resp.url}: {resp.text}")
+    return resp
+
+
 def upload_image(local_path: str) -> str:
     import boto3
     bucket = os.environ["S3_BUCKET"]
@@ -257,7 +278,7 @@ def create_container(image_url: str, caption: str) -> str:
     resp = requests.post(f"{GRAPH_BASE}/{IG_USER_ID}/media",
                          data={"image_url": image_url, "caption": caption,
                                "access_token": IG_ACCESS_TOKEN}, timeout=30)
-    resp.raise_for_status()
+    _check(resp)
     return resp.json()["id"]
 
 
@@ -265,7 +286,7 @@ def create_carousel_item(image_url: str) -> str:
     resp = requests.post(f"{GRAPH_BASE}/{IG_USER_ID}/media",
                          data={"image_url": image_url, "is_carousel_item": "true",
                                "access_token": IG_ACCESS_TOKEN}, timeout=30)
-    resp.raise_for_status()
+    _check(resp)
     return resp.json()["id"]
 
 
@@ -273,7 +294,7 @@ def create_carousel_container(child_ids, caption: str) -> str:
     resp = requests.post(f"{GRAPH_BASE}/{IG_USER_ID}/media",
                          data={"media_type": "CAROUSEL", "children": ",".join(child_ids),
                                "caption": caption, "access_token": IG_ACCESS_TOKEN}, timeout=30)
-    resp.raise_for_status()
+    _check(resp)
     return resp.json()["id"]
 
 
@@ -282,7 +303,7 @@ def wait_for_container(creation_id: str, attempts: int = 15, delay: int = 4) -> 
         resp = requests.get(f"{GRAPH_BASE}/{creation_id}",
                             params={"fields": "status_code",
                                     "access_token": IG_ACCESS_TOKEN}, timeout=30)
-        resp.raise_for_status()
+        _check(resp)
         status = resp.json().get("status_code")
         if status == "FINISHED":
             return
@@ -296,7 +317,7 @@ def publish(creation_id: str) -> str:
     resp = requests.post(f"{GRAPH_BASE}/{IG_USER_ID}/media_publish",
                          data={"creation_id": creation_id,
                                "access_token": IG_ACCESS_TOKEN}, timeout=30)
-    resp.raise_for_status()
+    _check(resp)
     return resp.json()["id"]
 
 
@@ -304,7 +325,7 @@ def refresh_token() -> str:
     resp = requests.get(REFRESH_URL,
                         params={"grant_type": "ig_refresh_token",
                                 "access_token": IG_ACCESS_TOKEN}, timeout=30)
-    resp.raise_for_status()
+    _check(resp)
     return resp.json()["access_token"]
 
 
@@ -329,6 +350,9 @@ def main() -> None:
         sys.exit(1)
 
     tag = uuid.uuid4().hex
+
+    print("Preparing images (fitting to a clean 4:5 canvas)...")
+    paths = [normalize_for_ig(p) for p in paths]
 
     print(f"Uploading {len(paths)} image(s) for analysis...")
     source_urls = [upload_image(p) for p in paths]
