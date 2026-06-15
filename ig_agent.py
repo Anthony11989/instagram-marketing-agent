@@ -1,11 +1,13 @@
 """
 Instagram posting agent with Telegram approval (Instagram Login API).
 
+Supports a single image OR a carousel of 2 to 10 images in one post.
+
 Normal flow (one GitHub Actions run does all of it):
-  1. You supply a local image and a topic.
+  1. You supply one or more local images and a topic.
   2. Claude writes a caption.
-  3. The image is uploaded to Cloudflare R2 to get a public HTTPS URL.
-  4. The photo and caption are sent to you in Telegram with Approve / Reject buttons.
+  3. The images are uploaded to Cloudflare R2 to get public HTTPS URLs.
+  4. The photos and caption are sent to you in Telegram with Approve / Reject buttons.
   5. The run waits for your tap. On Approve it publishes. On Reject or timeout it stops.
 
 Token refresh:
@@ -28,7 +30,9 @@ Setup:
     TELEGRAM_CHAT_ID=...       your chat id with the bot
 
 Run locally:
-  python ig_agent.py path/to/image.jpg "topic or angle for the caption"
+  Single image:  python ig_agent.py image.jpg "topic"
+  Carousel:      python ig_agent.py "a.jpg,b.jpg,c.jpg" "topic"
+  The order you list the files is the order they appear in the post.
 """
 
 import os
@@ -102,13 +106,33 @@ def upload_image(local_path: str) -> str:
     return f"{public_base}/{key}"
 
 
-def request_approval(image_url: str, caption: str, tag: str) -> None:
-    """Send the photo and caption to Telegram with Approve / Reject buttons."""
-    requests.post(
-        f"{TG_BASE}/sendPhoto",
-        data={"chat_id": TG_CHAT, "photo": image_url},
-        timeout=30,
-    )
+def resolve_paths(image_arg: str):
+    """Turn a comma-separated filename list into real file paths under inbox/."""
+    names = [n.strip() for n in image_arg.split(",") if n.strip()]
+    paths = []
+    for n in names:
+        p = n if os.path.exists(n) else os.path.join("inbox", os.path.basename(n))
+        paths.append(p)
+    return paths
+
+
+def request_approval(image_urls, caption: str, tag: str) -> None:
+    """Send the photo(s) and caption to Telegram with Approve / Reject buttons."""
+    if len(image_urls) == 1:
+        requests.post(
+            f"{TG_BASE}/sendPhoto",
+            data={"chat_id": TG_CHAT, "photo": image_urls[0]},
+            timeout=30,
+        )
+    else:
+        media = [{"type": "photo", "media": u} for u in image_urls]
+        requests.post(
+            f"{TG_BASE}/sendMediaGroup",
+            json={"chat_id": TG_CHAT, "media": media},
+            timeout=60,
+        )
+    count = len(image_urls)
+    label = "1 image" if count == 1 else f"{count} images (carousel)"
     keyboard = {"inline_keyboard": [[
         {"text": "Approve", "callback_data": f"approve:{tag}"},
         {"text": "Reject", "callback_data": f"reject:{tag}"},
@@ -117,7 +141,7 @@ def request_approval(image_url: str, caption: str, tag: str) -> None:
         f"{TG_BASE}/sendMessage",
         json={
             "chat_id": TG_CHAT,
-            "text": f"Post this caption?\n\n{caption}",
+            "text": f"Post this? ({label})\n\n{caption}",
             "reply_markup": keyboard,
         },
         timeout=30,
@@ -167,6 +191,7 @@ def _notify(text: str) -> None:
 
 
 def create_container(image_url: str, caption: str) -> str:
+    """Single-image container."""
     resp = requests.post(
         f"{GRAPH_BASE}/{IG_USER_ID}/media",
         data={"image_url": image_url, "caption": caption, "access_token": IG_ACCESS_TOKEN},
@@ -176,7 +201,38 @@ def create_container(image_url: str, caption: str) -> str:
     return resp.json()["id"]
 
 
-def wait_for_container(creation_id: str, attempts: int = 10, delay: int = 3) -> None:
+def create_carousel_item(image_url: str) -> str:
+    """One child image of a carousel."""
+    resp = requests.post(
+        f"{GRAPH_BASE}/{IG_USER_ID}/media",
+        data={
+            "image_url": image_url,
+            "is_carousel_item": "true",
+            "access_token": IG_ACCESS_TOKEN,
+        },
+        timeout=30,
+    )
+    resp.raise_for_status()
+    return resp.json()["id"]
+
+
+def create_carousel_container(child_ids, caption: str) -> str:
+    """The parent carousel container that ties the children together."""
+    resp = requests.post(
+        f"{GRAPH_BASE}/{IG_USER_ID}/media",
+        data={
+            "media_type": "CAROUSEL",
+            "children": ",".join(child_ids),
+            "caption": caption,
+            "access_token": IG_ACCESS_TOKEN,
+        },
+        timeout=30,
+    )
+    resp.raise_for_status()
+    return resp.json()["id"]
+
+
+def wait_for_container(creation_id: str, attempts: int = 15, delay: int = 4) -> None:
     for _ in range(attempts):
         resp = requests.get(
             f"{GRAPH_BASE}/{creation_id}",
@@ -220,28 +276,43 @@ def main() -> None:
         return
 
     if len(sys.argv) < 3:
-        print('Usage: python ig_agent.py <image_path> "<topic>"')
+        print('Usage: python ig_agent.py "<image or a.jpg,b.jpg,c.jpg>" "<topic>"')
         sys.exit(1)
 
-    image_path, topic = sys.argv[1], sys.argv[2]
+    image_arg, topic = sys.argv[1], sys.argv[2]
+    paths = resolve_paths(image_arg)
+    if not paths:
+        print("No image filenames given.")
+        sys.exit(1)
+    if len(paths) > 10:
+        print("Instagram carousels allow at most 10 images.")
+        sys.exit(1)
+
     tag = uuid.uuid4().hex
 
     print("Generating caption...")
     caption = generate_caption(topic)
 
-    print("Uploading image to R2...")
-    image_url = upload_image(image_path)
+    print(f"Uploading {len(paths)} image(s) to R2...")
+    image_urls = [upload_image(p) for p in paths]
 
     print("Sending to Telegram for approval...")
-    request_approval(image_url, caption, tag)
+    request_approval(image_urls, caption, tag)
 
     decision = wait_for_approval(tag)
     if decision is not True:
         print("Not approved. Exiting.")
         return
 
-    print("Creating container...")
-    creation_id = create_container(image_url, caption)
+    if len(image_urls) == 1:
+        print("Creating container...")
+        creation_id = create_container(image_urls[0], caption)
+    else:
+        print("Creating carousel items...")
+        child_ids = [create_carousel_item(u) for u in image_urls]
+        print("Creating carousel container...")
+        creation_id = create_carousel_container(child_ids, caption)
+
     wait_for_container(creation_id)
 
     print("Publishing...")
