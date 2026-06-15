@@ -168,8 +168,8 @@ def add_overlay(local_path: str, text: str) -> str:
         draw.text((x, y), ln, font=font, fill=(255, 255, 255, 255))
         y += line_h
 
-    out = local_path.rsplit(".", 1)[0] + "_overlay.jpg"
-    img.save(out, "JPEG", quality=90)
+    out = local_path.rsplit(".", 1)[0] + "_overlay.png"
+    img.save(out, "PNG")
     return out
 
 
@@ -182,8 +182,8 @@ def normalize_for_ig(local_path: str, target_w: int = 1080, target_h: int = 1350
     img.thumbnail((target_w, target_h), Image.LANCZOS)
     canvas = Image.new("RGB", (target_w, target_h), bg)
     canvas.paste(img, ((target_w - img.width) // 2, (target_h - img.height) // 2))
-    out = local_path.rsplit(".", 1)[0] + "_ig.jpg"
-    canvas.save(out, "JPEG", quality=90)
+    out = local_path.rsplit(".", 1)[0] + "_ig.png"
+    canvas.save(out, "PNG")
     return out
 
 
