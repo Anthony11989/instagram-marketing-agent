@@ -483,7 +483,9 @@ HTML = r"""
         <input type="text" id="prev-cta" value="Your first 14 days are free. Link in bio.">
         <div class="btn-row">
           <button class="btn btn-gold" onclick="generatePreview()">Render Preview</button>
+          <button class="btn btn-outline" id="gen-content-btn" onclick="generateContent()">Generate Content</button>
         </div>
+        <div id="gen-content-status" style="font-size:13px;color:var(--muted);margin-top:10px;min-height:18px;"></div>
       </div>
       <div id="card-preview" style="display:flex;align-items:flex-start;justify-content:center;">
         <p style="color:var(--muted);font-size:13px;margin-top:60px;">Click Render Preview to see your card.</p>
@@ -716,6 +718,43 @@ async function triggerPost() {
 }
 
 // ---- Card preview ----
+async function generateContent() {
+  const btn    = document.getElementById('gen-content-btn');
+  const status = document.getElementById('gen-content-status');
+  btn.disabled    = true;
+  btn.textContent = 'Generating...';
+  status.style.color = 'var(--muted)';
+  status.textContent = 'Calling Claude...';
+
+  const style = document.getElementById('prev-style').value;
+  try {
+    const resp = await fetch('/generate-content', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ style }),
+    });
+    const data = await resp.json();
+    if (!data.ok) {
+      status.style.color = '#e74c3c';
+      status.textContent = 'Error: ' + data.error;
+      return;
+    }
+    if (data.eyebrow)  document.getElementById('prev-eyebrow').value  = data.eyebrow;
+    if (data.headline) document.getElementById('prev-headline').value = data.headline;
+    if (data.body)     document.getElementById('prev-body').value     = data.body;
+    if (data.cta)      document.getElementById('prev-cta').value      = data.cta;
+    status.style.color = '#2ecc71';
+    status.textContent = 'Content generated.';
+    generatePreview();
+  } catch (err) {
+    status.style.color = '#e74c3c';
+    status.textContent = 'Unexpected error: ' + err.message;
+  } finally {
+    btn.disabled    = false;
+    btn.textContent = 'Generate Content';
+  }
+}
+
 async function generatePreview() {
   const box = document.getElementById('card-preview');
   box.innerHTML = '<p style="color:var(--muted);font-size:13px;">Rendering...</p>';
@@ -1030,6 +1069,59 @@ def preview():
     style    = request.args.get("style","stat")
     buf = render_preview(eyebrow, headline, body, cta, style)
     return send_file(buf, mimetype="image/png")
+
+
+@app.route("/generate-content", methods=["POST"])
+def generate_content_route():
+    import anthropic as _anthropic
+    api_key = os.environ.get("ANTHROPIC_API_KEY", "")
+    if not api_key:
+        return jsonify(ok=False,
+                       error="ANTHROPIC_API_KEY not set — add it to dashboard.env and restart.")
+    style = request.json.get("style", "stat")
+    style_note = (
+        "This is a STAT card. Focus on a specific metric, operational insight, or hidden cost "
+        "that bar and restaurant owners miss. Use a concrete number or data point if natural."
+        if style == "stat" else
+        "This is an ATMOSPHERIC card. Evoke the feeling of running a tight, profitable operation. "
+        "Focus on transformation, control, and the premium result of using BarLedger."
+    )
+    prompt = f"""You are writing Instagram card copy for BarLedger, a premium SaaS platform \
+for bar and restaurant inventory management and pour-cost control.
+
+Brand voice: direct, confident, luxury hospitality. Speaks to operators who care about margins. \
+No fluff, no cliches, no em dashes.
+
+{style_note}
+
+Return ONLY a valid JSON object with exactly these four keys:
+  eyebrow  - 2-3 words, all caps, acts as a short label (e.g. "POUR COST" or "INVENTORY INSIGHT")
+  headline - 6-12 words, punchy. Use \\n to break across 2 lines for dramatic effect.
+  body     - 1-2 sentences, factual and specific. No em dashes.
+  cta      - short call to action, 6-10 words (e.g. "Your first 14 days are free. Link in bio.")
+
+Return only the JSON object. No explanation, no code fences."""
+    try:
+        client = _anthropic.Anthropic(api_key=api_key)
+        msg    = client.messages.create(
+            model="claude-sonnet-4-6",
+            max_tokens=512,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        text = msg.content[0].text.strip()
+        if text.startswith("```"):
+            text = text.split("```")[1]
+            if text.startswith("json"):
+                text = text[4:]
+            text = text.strip()
+        fields = json.loads(text)
+        return jsonify(ok=True,
+                       eyebrow=fields.get("eyebrow",""),
+                       headline=fields.get("headline",""),
+                       body=fields.get("body",""),
+                       cta=fields.get("cta",""))
+    except Exception as e:
+        return jsonify(ok=False, error=str(e))
 
 
 @app.route("/files/<folder>")
