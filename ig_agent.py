@@ -333,6 +333,7 @@ def _render_card_content(draw, img, fields, fonts, max_w, start_y, logo):
 
 def render_stat_card(fields: dict, out_path: str) -> str:
     from PIL import Image, ImageDraw
+    fields = {**fields, "headline": fields.get("headline","").replace("\\n", "\n")}
     W, H = 1080, 1350
     fonts = _fonts()
     logo  = Image.open(LOGO_LIGHT).convert("RGBA")
@@ -354,6 +355,7 @@ def render_stat_card(fields: dict, out_path: str) -> str:
 
 def render_atm_card(fields: dict, out_path: str) -> str:
     from PIL import Image, ImageDraw, ImageFilter
+    fields = {**fields, "headline": fields.get("headline","").replace("\\n", "\n")}
     W, H = 1080, 1350
     fonts = _fonts()
     logo  = Image.open(LOGO_LIGHT).convert("RGBA")

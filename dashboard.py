@@ -174,6 +174,7 @@ def _th(draw, text, font):
 def render_preview(eyebrow, headline, body, cta, style="stat"):
     from PIL import Image, ImageDraw, ImageFilter
     import io
+    headline = headline.replace("\\n", "\n")
     W, H = 1080, 1350
     pf   = _get_font("PlayfairDisplay.ttf", 96, "Bold")
     dm_b = _get_font("DMSans.ttf", 42)
