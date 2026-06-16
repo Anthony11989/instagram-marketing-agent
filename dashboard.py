@@ -415,11 +415,11 @@ HTML = r"""
   <div class="nav-brand">BarLedger</div>
   <div class="nav-tab active" onclick="showTab('compose')">Compose</div>
   <div class="nav-tab" onclick="showTab('preview')">Card Preview</div>
+  <div class="nav-tab" onclick="showTab('schedule')">Schedule</div>
   <div class="nav-tab" onclick="showTab('inbox')">Inbox</div>
   <div class="nav-tab" onclick="showTab('backgrounds')">Backgrounds</div>
   <div class="nav-tab" onclick="showTab('history')">History</div>
   <div class="nav-tab" onclick="showTab('token')">Token</div>
-  <div class="nav-tab" onclick="showTab('schedule')">Schedule</div>
 </nav>
 
 <main>
