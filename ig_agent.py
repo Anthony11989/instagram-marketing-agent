@@ -99,10 +99,10 @@ def _load_font(name, size, variant=None):
 
 def _fonts():
     return {
-        "pf_bold":  _load_font("PlayfairDisplay.ttf",  72, "Bold"),
-        "dm_body":  _load_font("DMSans.ttf",           30),
-        "dm_small": _load_font("DMSans.ttf",           22),
-        "dm_eye":   _load_font("DMSans.ttf",           17),
+        "pf_bold":  _load_font("PlayfairDisplay.ttf",  96, "Bold"),
+        "dm_body":  _load_font("DMSans.ttf",           42),
+        "dm_small": _load_font("DMSans.ttf",           36),
+        "dm_eye":   _load_font("DMSans.ttf",           40),
         "dm_over":  _load_font("DMSans.ttf",           38, "Bold"),
     }
 
@@ -257,20 +257,27 @@ def generate_card_content(direction: str) -> dict:
     return json.loads(raw)
 
 
+_CARD_SPACING = dict(
+    EY_ADV=52, EY_GAP=26, HL_GAP=18, PHL_GAP=14,
+    DIV_GAP=40, BD_GAP=16, POST_BD=62, BTN_H=92, BTN_PAD=58, LH_PX=72,
+)
+
 def _measure_block(draw, fields, fonts, max_w):
-    h = 26 + 18 + 22
+    s = _CARD_SPACING
+    h = s["EY_ADV"] + 1 + s["EY_GAP"]
     for raw in fields["headline"].split("\n"):
         for ln in _wrap(draw, raw, fonts["pf_bold"], max_w):
-            h += _th(draw, ln, fonts["pf_bold"]) + 14
-    h += 8 + 1 + 32
+            h += _th(draw, ln, fonts["pf_bold"]) + s["HL_GAP"]
+    h += s["PHL_GAP"] + 1 + s["DIV_GAP"]
     for ln in _wrap(draw, fields["body"], fonts["dm_body"], max_w):
-        h += _th(draw, ln, fonts["dm_body"]) + 12
-    h += 52 + 72
+        h += _th(draw, ln, fonts["dm_body"]) + s["BD_GAP"]
+    h += s["POST_BD"] + s["BTN_H"]
     return h
 
 
 def _render_card_content(draw, img, fields, fonts, max_w, start_y, logo):
     from PIL import Image
+    s  = _CARD_SPACING
     cx = 1080 // 2
     y  = start_y
 
@@ -278,9 +285,9 @@ def _render_card_content(draw, img, fields, fonts, max_w, start_y, logo):
     ey = "  ".join(fields["eyebrow"].upper())
     ew = draw.textlength(ey, font=fonts["dm_eye"])
     draw.text(((1080-ew)/2, y), ey, font=fonts["dm_eye"], fill=BRAND_GOLD)
-    y += 26
-    draw.rectangle([(cx-24,y),(cx+24,y+1)], fill=(*BRAND_GOLD,160))
-    y += 22
+    y += s["EY_ADV"]
+    draw.rectangle([(cx-32,y),(cx+32,y+1)], fill=(*BRAND_GOLD,160))
+    y += s["EY_GAP"]
 
     # Headline
     for raw in fields["headline"].split("\n"):
@@ -289,10 +296,10 @@ def _render_card_content(draw, img, fields, fonts, max_w, start_y, logo):
             bb = draw.textbbox((0,0), ln, font=fonts["pf_bold"])
             draw.text(((1080-lw)/2, y - bb[1]), ln,
                       font=fonts["pf_bold"], fill=BRAND_CREAM)
-            y += bb[3]-bb[1] + 14
-    y += 8
-    draw.rectangle([(cx-60,y),(cx+60,y+1)], fill=(*BRAND_GOLD,120))
-    y += 32
+            y += bb[3]-bb[1] + s["HL_GAP"]
+    y += s["PHL_GAP"]
+    draw.rectangle([(cx-52,y),(cx+52,y+1)], fill=(*BRAND_GOLD,120))
+    y += s["DIV_GAP"]
 
     # Body
     for ln in _wrap(draw, fields["body"], fonts["dm_body"], max_w):
@@ -300,28 +307,27 @@ def _render_card_content(draw, img, fields, fonts, max_w, start_y, logo):
         bb = draw.textbbox((0,0), ln, font=fonts["dm_body"])
         draw.text(((1080-lw)/2, y - bb[1]), ln,
                   font=fonts["dm_body"], fill=BRAND_MUTED)
-        y += bb[3]-bb[1] + 12
-    y += 52
+        y += bb[3]-bb[1] + s["BD_GAP"]
+    y += s["POST_BD"]
 
-    # CTA button: solid gold, dark text
+    # CTA button
     cta_up = fields["cta"].upper()
     cw     = draw.textlength(cta_up, font=fonts["dm_small"])
-    bpx, bh = 44, 72
-    bw     = int(cw + bpx*2)
+    bw     = int(cw + s["BTN_PAD"]*2)
     bx     = (1080-bw)//2
-    draw.rounded_rectangle([bx,y,bx+bw,y+bh], radius=3, fill=BRAND_GOLD)
+    draw.rounded_rectangle([bx,y,bx+bw,y+s["BTN_H"]], radius=4, fill=BRAND_GOLD)
     bb = draw.textbbox((0,0), cta_up, font=fonts["dm_small"])
     th = bb[3]-bb[1]
-    draw.text((bx+bpx, y+(bh-th)//2 - bb[1]), cta_up,
+    draw.text((bx+s["BTN_PAD"], y+(s["BTN_H"]-th)//2 - bb[1]), cta_up,
               font=fonts["dm_small"], fill=BRAND_BG)
 
     # Logo pinned to bottom
-    lh_px  = 52
+    lh_px  = s["LH_PX"]
     lw_px  = int(logo.width * lh_px / logo.height)
     logo_r = logo.resize((lw_px, lh_px), Image.LANCZOS)
     lx     = (1080-lw_px)//2
     ly     = 1350 - 52 - lh_px
-    draw.rectangle([(60+40,ly-20),(1080-60-40,ly-19)], fill=(*BRAND_GOLD,45))
+    draw.rectangle([(60+20,ly-24),(1080-60-20,ly-23)], fill=(*BRAND_GOLD,45))
     img.paste(logo_r, (lx,ly), logo_r)
 
 
@@ -334,7 +340,7 @@ def render_stat_card(fields: dict, out_path: str) -> str:
     draw  = ImageDraw.Draw(img, "RGBA")
     PAD   = 60
     MAX_W = W - PAD*2 - 40
-    LOGO_ZONE = 52 + 20 + 32
+    LOGO_ZONE = _CARD_SPACING["LH_PX"] + 24 + 32
     USABLE    = H - PAD - 4 - PAD - LOGO_ZONE
     dummy = ImageDraw.Draw(Image.new("RGB",(10,10)))
     bh    = _measure_block(dummy, fields, fonts, MAX_W)
@@ -365,7 +371,7 @@ def render_atm_card(fields: dict, out_path: str) -> str:
     draw.rectangle([0,0,W,H], fill=(0,0,0,168))
     PAD   = 60
     MAX_W = W - PAD*2 - 40
-    LOGO_ZONE = 52 + 20 + 32
+    LOGO_ZONE = _CARD_SPACING["LH_PX"] + 24 + 32
     USABLE    = H - PAD - 4 - PAD - LOGO_ZONE
     dummy = ImageDraw.Draw(Image.new("RGB",(10,10)))
     bh    = _measure_block(dummy, fields, fonts, MAX_W)
