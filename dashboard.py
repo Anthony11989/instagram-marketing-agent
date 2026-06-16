@@ -691,11 +691,21 @@ function onModeChange() {
 
 // ---- Compose / post ----
 async function triggerPost() {
-  const mode      = document.getElementById('mode').value;
-  const images    = document.getElementById('images').value.trim();
-  const direction = document.getElementById('direction').value.trim();
-  const overlay   = document.getElementById('overlay').checked ? 'yes' : 'no';
+  const mode    = document.getElementById('mode').value;
+  const images  = document.getElementById('images').value.trim();
+  const overlay = document.getElementById('overlay').checked ? 'yes' : 'no';
+  let direction = document.getElementById('direction').value.trim();
 
+  if (!direction && mode !== 'photo') {
+    const ph = document.getElementById('prev-headline').value.trim();
+    const pb = document.getElementById('prev-body').value.trim();
+    const pc = document.getElementById('prev-cta').value.trim();
+    if (!ph && !pb) {
+      alert('Enter a direction, or generate content in the Card Preview tab first.');
+      return;
+    }
+    direction = [ph, pb, pc ? 'CTA: ' + pc : ''].filter(Boolean).join(' | ');
+  }
   if (!direction) { alert('Please enter a direction / CTA.'); return; }
   if (mode === 'photo' && !images) { alert('Please enter at least one image filename.'); return; }
 
@@ -755,18 +765,35 @@ async function generateContent() {
   }
 }
 
+const CTA_URL = 'https://xlforhospitality.com/barledger/?utm_source=ig&utm_medium=social&utm_content=link_in_bio';
+
 async function generatePreview() {
   const box = document.getElementById('card-preview');
   box.innerHTML = '<p style="color:var(--muted);font-size:13px;">Rendering...</p>';
+  const cta    = document.getElementById('prev-cta').value;
   const params = new URLSearchParams({
     eyebrow:  document.getElementById('prev-eyebrow').value,
     headline: document.getElementById('prev-headline').value,
     body:     document.getElementById('prev-body').value,
-    cta:      document.getElementById('prev-cta').value,
+    cta:      cta,
     style:    document.getElementById('prev-style').value,
     t:        Date.now(),
   });
-  box.innerHTML = `<img src="/preview?${params}" style="max-width:100%;border-radius:4px;">`;
+  box.innerHTML = `
+    <div style="width:100%;">
+      <img src="/preview?${params}" style="max-width:100%;border-radius:4px;display:block;">
+      <div style="margin-top:14px;text-align:center;">
+        <a href="${CTA_URL}" target="_blank" rel="noopener"
+           style="display:inline-block;background:var(--gold);color:#0a0a0a;
+                  padding:12px 32px;border-radius:4px;font-size:12px;font-weight:700;
+                  letter-spacing:.1em;text-transform:uppercase;text-decoration:none;
+                  transition:background .15s;"
+           onmouseover="this.style.background='var(--gold-lt)'"
+           onmouseout="this.style.background='var(--gold)'">
+          ${cta || 'Link in Bio'}
+        </a>
+      </div>
+    </div>`;
 }
 
 // ---- File management ----
@@ -921,18 +948,44 @@ async function queuePost() {
     status.textContent = 'Please select a date and time.';
     return;
   }
+  const mode = document.getElementById('sch-mode').value;
+  let direction        = document.getElementById('sch-direction').value.trim();
+  let overrideHeadline = document.getElementById('sch-headline').value.trim();
+  let overrideBody     = document.getElementById('sch-body').value.trim();
+  let overrideCta      = document.getElementById('sch-cta').value.trim();
+
+  if (!direction && mode !== 'photo') {
+    const ph = document.getElementById('prev-headline').value.trim();
+    const pb = document.getElementById('prev-body').value.trim();
+    const pc = document.getElementById('prev-cta').value.trim();
+    if (!ph && !pb) {
+      status.style.color = '#e74c3c';
+      status.textContent = 'Enter a direction, or generate content in the Card Preview tab first.';
+      return;
+    }
+    if (!overrideHeadline) overrideHeadline = ph;
+    if (!overrideBody)     overrideBody     = pb;
+    if (!overrideCta)      overrideCta      = pc;
+    direction = [ph, pb].filter(Boolean).join(' | ');
+  }
+  if (!direction && mode === 'photo') {
+    status.style.color = '#e74c3c';
+    status.textContent = 'Please enter a direction.';
+    return;
+  }
+
   const recurringEnabled = document.getElementById('sch-recurring').checked;
   const recurringDays    = recurringEnabled
     ? Array.from(document.querySelectorAll('.sch-day:checked')).map(cb => cb.value)
     : [];
   const imagesRaw = document.getElementById('sch-images').value;
   const payload = {
-    mode:                document.getElementById('sch-mode').value,
-    direction:           document.getElementById('sch-direction').value.trim(),
+    mode,
+    direction,
     images:              imagesRaw ? imagesRaw.split(',').map(s => s.trim()).filter(Boolean) : [],
-    override_headline:   document.getElementById('sch-headline').value.trim(),
-    override_body:       document.getElementById('sch-body').value.trim(),
-    override_cta:        document.getElementById('sch-cta').value.trim(),
+    override_headline:   overrideHeadline,
+    override_body:       overrideBody,
+    override_cta:        overrideCta,
     scheduled_time:      `${date}T${time}:00`,
     timezone:            document.getElementById('sch-tz').value,
     recurring_enabled:   recurringEnabled,
