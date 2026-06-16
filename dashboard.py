@@ -951,8 +951,7 @@ function onSchModeChange() {
       document.getElementById('sch-headline').value  = ph;
       document.getElementById('sch-body').value      = pb;
       document.getElementById('sch-cta').value       = pc;
-      // Pre-fill direction too so scheduler has fallback context
-      document.getElementById('sch-direction').value = [ph, pb].filter(Boolean).join(' | ');
+      document.getElementById('sch-direction').value = '';
     }
   }
 }
