@@ -1,3 +1,23 @@
 {
-  "posts": []
+  "posts": [
+    {
+      "id": "de6f2142-6f12-486e-b549-30ba1ea8b877",
+      "mode": "card_stat",
+      "scheduled_time": "2026-06-17T09:00:00",
+      "timezone": "America/Phoenix",
+      "status": "pending",
+      "inputs": {
+        "direction": "",
+        "images": [],
+        "override_headline": "A 1% variance in pour costsilently costs you thousands.",
+        "override_body": "On $50,000 in monthly bar revenue, a single percentage point of uncontrolled pour cost drains $6,000 every year. Most operators never see it because they are not measuring at the recipe level.",
+        "override_cta": "Start controlling every pour. Free 14-day trial."
+      },
+      "recurring": {
+        "enabled": false,
+        "frequency": "weekly",
+        "days": []
+      }
+    }
+  ]
 }
