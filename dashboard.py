@@ -34,7 +34,8 @@ GH_HEADS  = {
 }
 
 app = Flask(__name__)
-post_log = []   # in-memory log; survives until you close the server
+post_log  = []   # in-memory log; survives until you close the server
+reel_jobs = {}   # tag -> status dict for background reel posting threads
 
 # ---------------------------------------------------------------------------
 # GitHub helpers
@@ -108,6 +109,76 @@ def gh_get_secret_updated(secret_name):
     except Exception:
         pass
     return "unknown"
+
+def r2_upload_video(filename, data_bytes):
+    """Upload video bytes directly to R2, return public URL."""
+    import boto3
+    from botocore.client import Config
+    s3 = boto3.client(
+        "s3",
+        endpoint_url=os.environ.get("S3_ENDPOINT",""),
+        aws_access_key_id=os.environ.get("S3_ACCESS_KEY",""),
+        aws_secret_access_key=os.environ.get("S3_SECRET_KEY",""),
+        config=Config(signature_version="s3v4"),
+        region_name="auto",
+    )
+    key = f"videos/{filename}"
+    s3.put_object(Bucket=os.environ.get("S3_BUCKET",""),
+                  Key=key, Body=data_bytes, ContentType="video/mp4")
+    base = os.environ.get("S3_PUBLIC_BASE","").rstrip("/")
+    return f"{base}/{key}"
+
+
+def _reel_post_thread(tag, video_url, caption):
+    """Background thread: create IG Reels container, poll, Telegram approval, publish."""
+    import ig_agent
+    ig_user = os.environ.get("IG_USER_ID","")
+    ig_tok  = os.environ.get("IG_ACCESS_TOKEN","")
+    ig_api  = "https://graph.facebook.com/v19.0"
+    try:
+        reel_jobs[tag]["state"] = "creating_container"
+        r = req.post(f"{ig_api}/{ig_user}/media",
+                     data={"media_type": "REELS", "video_url": video_url,
+                           "caption": caption, "access_token": ig_tok},
+                     timeout=30)
+        r.raise_for_status()
+        cid = r.json()["id"]
+        reel_jobs[tag]["container_id"] = cid
+
+        reel_jobs[tag]["state"] = "processing"
+        for _ in range(72):          # up to 12 minutes
+            time.sleep(10)
+            pr = req.get(f"{ig_api}/{cid}",
+                         params={"fields": "status_code,status",
+                                 "access_token": ig_tok}, timeout=15)
+            sc = pr.json().get("status_code","")
+            if sc == "FINISHED":
+                break
+            if sc == "ERROR":
+                raise RuntimeError(f"Instagram processing error: {pr.json()}")
+        else:
+            raise RuntimeError("Timed out waiting for Instagram to process video")
+
+        reel_jobs[tag]["state"] = "awaiting_approval"
+        ig_agent.request_approval([video_url], caption, tag)
+        approved = ig_agent.wait_for_approval(tag)
+        if approved is not True:
+            reel_jobs[tag]["state"] = "rejected"
+            return
+
+        reel_jobs[tag]["state"] = "publishing"
+        pr = req.post(f"{ig_api}/{ig_user}/media_publish",
+                      data={"creation_id": cid, "access_token": ig_tok},
+                      timeout=30)
+        pr.raise_for_status()
+        media_id = pr.json()["id"]
+        reel_jobs[tag]["state"]    = "done"
+        reel_jobs[tag]["media_id"] = media_id
+        ig_agent._notify(f"Reel published. Media ID: {media_id}")
+    except Exception as e:
+        reel_jobs[tag]["state"] = "error"
+        reel_jobs[tag]["error"] = str(e)
+
 
 def gh_read_json(path):
     try:
@@ -418,6 +489,7 @@ HTML = r"""
   <div class="nav-tab" onclick="showTab('schedule')">Schedule</div>
   <div class="nav-tab" onclick="showTab('inbox')">Inbox</div>
   <div class="nav-tab" onclick="showTab('backgrounds')">Backgrounds</div>
+  <div class="nav-tab" onclick="showTab('videos')">Videos</div>
   <div class="nav-tab" onclick="showTab('history')">History</div>
   <div class="nav-tab" onclick="showTab('token')">Token</div>
 </nav>
@@ -550,6 +622,42 @@ HTML = r"""
       <button class="btn btn-outline" onclick="refreshToken()">Refresh Token Now</button>
     </div>
     <div id="token-log" style="display:none;" class="run-log"></div>
+  </div>
+</div>
+
+<!-- VIDEOS -->
+<div id="tab-videos" class="tab-panel">
+  <div class="card">
+    <h2>Upload Video</h2>
+    <p style="color:var(--muted);font-size:13px;margin-bottom:20px;">
+      Drop your Remotion MP4 here. It uploads directly to R2 and stays available for posting.
+    </p>
+    <div class="upload-zone" id="video-drop-zone"
+         onclick="document.getElementById('video-upload-input').click()">
+      Drop MP4 here or click to select
+    </div>
+    <input type="file" id="video-upload-input" accept="video/mp4,.mp4" style="display:none">
+    <div id="video-upload-status" style="font-size:13px;color:var(--muted);margin-top:12px;min-height:18px;"></div>
+    <div id="video-file-info" style="display:none;margin-top:18px;padding:16px;
+         border:1px solid var(--border);border-radius:var(--radius);">
+      <label style="margin-top:0;">File</label>
+      <div id="reel-filename" style="font-size:14px;color:var(--cream);margin-bottom:12px;"></div>
+      <label>R2 URL</label>
+      <div id="reel-url-display" style="font-size:12px;color:var(--muted);word-break:break-all;
+           background:#050505;padding:10px 12px;border-radius:var(--radius);
+           border:1px solid var(--border);margin-top:4px;"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Post as Reel</h2>
+    <label>Caption</label>
+    <textarea id="reel-caption" placeholder="Write your caption, or leave blank to post without one."
+              style="min-height:100px;"></textarea>
+    <div class="btn-row">
+      <button class="btn btn-gold" id="post-reel-btn" onclick="postReel()" disabled>Post as Reel</button>
+    </div>
+    <div id="reel-post-status" style="font-size:13px;margin-top:14px;min-height:18px;color:var(--muted);"></div>
   </div>
 </div>
 
@@ -1081,8 +1189,114 @@ async function cancelPost(id, btn) {
   }
 }
 
+// ---- Videos / Reels ----
+let reelVideoUrl      = null;
+let reelPollInterval  = null;
+
+function setupVideoDrop() {
+  const zone  = document.getElementById('video-drop-zone');
+  const input = document.getElementById('video-upload-input');
+  zone.addEventListener('dragover', e => { e.preventDefault(); zone.style.borderColor = 'var(--gold)'; });
+  zone.addEventListener('dragleave', () => { zone.style.borderColor = ''; });
+  zone.addEventListener('drop', e => {
+    e.preventDefault(); zone.style.borderColor = '';
+    const file = e.dataTransfer.files[0];
+    if (file) handleVideoFile(file);
+  });
+  input.addEventListener('change', function() { if (this.files[0]) handleVideoFile(this.files[0]); });
+}
+
+async function handleVideoFile(file) {
+  if (!file.name.toLowerCase().endsWith('.mp4')) { alert('Please select an MP4 file.'); return; }
+  const statusEl = document.getElementById('video-upload-status');
+  const sizeMB   = (file.size / 1024 / 1024).toFixed(1);
+  statusEl.style.color = 'var(--muted)';
+  statusEl.textContent = `Uploading ${file.name} (${sizeMB} MB) to R2...`;
+  document.getElementById('reel-filename').textContent = `${file.name}  (${sizeMB} MB)`;
+  document.getElementById('video-file-info').style.display = 'block';
+  document.getElementById('post-reel-btn').disabled = true;
+  reelVideoUrl = null;
+
+  const b64  = await toBase64Video(file);
+  const resp = await fetch('/upload-video', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ filename: file.name, data: b64 }),
+  });
+  const data = await resp.json();
+  if (data.ok) {
+    reelVideoUrl = data.url;
+    statusEl.style.color = '#2ecc71';
+    statusEl.textContent = 'Uploaded to R2.';
+    document.getElementById('reel-url-display').textContent = data.url;
+    document.getElementById('post-reel-btn').disabled = false;
+  } else {
+    statusEl.style.color = '#e74c3c';
+    statusEl.textContent = 'Upload error: ' + data.error;
+  }
+}
+
+function toBase64Video(file) {
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload  = () => res(r.result.split(',')[1]);
+    r.onerror = rej;
+    r.readAsDataURL(file);
+  });
+}
+
+async function postReel() {
+  if (!reelVideoUrl) { alert('Upload a video first.'); return; }
+  const caption  = document.getElementById('reel-caption').value.trim();
+  const btn      = document.getElementById('post-reel-btn');
+  const statusEl = document.getElementById('reel-post-status');
+  btn.disabled = true;
+  statusEl.style.color = 'var(--muted)';
+  statusEl.textContent = 'Submitting...';
+
+  const resp = await fetch('/post-reel', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ video_url: reelVideoUrl, caption }),
+  });
+  const data = await resp.json();
+  if (!data.ok) {
+    statusEl.style.color = '#e74c3c';
+    statusEl.textContent = 'Error: ' + data.error;
+    btn.disabled = false;
+    return;
+  }
+  if (reelPollInterval) clearInterval(reelPollInterval);
+  reelPollInterval = setInterval(() => pollReelStatus(data.tag, statusEl, btn), 5000);
+  pollReelStatus(data.tag, statusEl, btn);
+}
+
+async function pollReelStatus(tag, statusEl, btn) {
+  const resp = await fetch('/reel-status/' + tag);
+  const data = await resp.json();
+  const msgs = {
+    starting:           'Submitting...',
+    creating_container: 'Creating Reel container on Instagram...',
+    processing:         'Instagram is processing your video (this takes 1-5 minutes)...',
+    awaiting_approval:  'Check Telegram — approve or reject to continue.',
+    publishing:         'Publishing...',
+    done:               'Reel published.',
+    rejected:           'Rejected or timed out.',
+    error:              'Error: ' + (data.error || 'unknown'),
+  };
+  statusEl.textContent = msgs[data.state] || data.state;
+  statusEl.style.color = data.state === 'done'    ? '#2ecc71'
+                       : ['error','rejected'].includes(data.state) ? '#e74c3c'
+                       : 'var(--muted)';
+  if (['done','rejected','error'].includes(data.state)) {
+    clearInterval(reelPollInterval);
+    btn.disabled = false;
+  }
+}
+
 // Init
 onModeChange();
+setupVideoDrop();
 document.getElementById('inbox-upload').addEventListener('change', function(){ uploadFiles('inbox', this); });
 document.getElementById('bg-upload').addEventListener('change', function(){ uploadFiles('backgrounds', this); });
 </script>
@@ -1251,6 +1465,37 @@ def trigger_refresh():
         return jsonify(ok=True)
     except Exception as e:
         return jsonify(ok=False, error=str(e))
+
+
+@app.route("/upload-video", methods=["POST"])
+def upload_video():
+    d        = request.json
+    filename = d["filename"]
+    data     = base64.b64decode(d["data"])
+    try:
+        url = r2_upload_video(filename, data)
+        return jsonify(ok=True, url=url)
+    except Exception as e:
+        return jsonify(ok=False, error=str(e))
+
+
+@app.route("/post-reel", methods=["POST"])
+def post_reel():
+    d         = request.json
+    video_url = d.get("video_url","")
+    caption   = d.get("caption","")
+    if not video_url:
+        return jsonify(ok=False, error="video_url required")
+    tag = uuid.uuid4().hex
+    reel_jobs[tag] = {"state": "starting"}
+    threading.Thread(target=_reel_post_thread,
+                     args=(tag, video_url, caption), daemon=True).start()
+    return jsonify(ok=True, tag=tag)
+
+
+@app.route("/reel-status/<tag>")
+def reel_status_route(tag):
+    return jsonify(reel_jobs.get(tag, {"state": "unknown"}))
 
 
 @app.route("/schedule")
