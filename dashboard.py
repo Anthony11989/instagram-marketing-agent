@@ -679,7 +679,7 @@ function showTab(name) {
   if (name === 'backgrounds') loadFiles('backgrounds');
   if (name === 'history')     loadHistory();
   if (name === 'token')       loadToken();
-  if (name === 'schedule')    loadSchedule();
+  if (name === 'schedule')  { loadSchedule(); onSchModeChange(); }
 }
 
 // ---- Mode toggle ----
@@ -932,6 +932,29 @@ function onSchModeChange() {
   const mode = document.getElementById('sch-mode').value;
   document.getElementById('sch-image-section').style.display =
     mode === 'photo' ? 'block' : 'none';
+
+  if (mode === 'photo') {
+    // Pull images + direction from Compose tab
+    const img = document.getElementById('images').value.trim();
+    const dir = document.getElementById('direction').value.trim();
+    if (img) document.getElementById('sch-images').value    = img;
+    if (dir) document.getElementById('sch-direction').value = dir;
+  } else {
+    // Pull override text from Card Preview only if styles match
+    const previewStyle = document.getElementById('prev-style').value;
+    const matches = (mode === 'card_atm' && previewStyle === 'atm') ||
+                    (mode === 'card_stat' && previewStyle === 'stat');
+    if (matches) {
+      const ph = document.getElementById('prev-headline').value.trim();
+      const pb = document.getElementById('prev-body').value.trim();
+      const pc = document.getElementById('prev-cta').value.trim();
+      document.getElementById('sch-headline').value  = ph;
+      document.getElementById('sch-body').value      = pb;
+      document.getElementById('sch-cta').value       = pc;
+      // Pre-fill direction too so scheduler has fallback context
+      document.getElementById('sch-direction').value = [ph, pb].filter(Boolean).join(' | ');
+    }
+  }
 }
 
 function onSchRecurringChange() {
@@ -954,23 +977,11 @@ async function queuePost() {
   let overrideBody     = document.getElementById('sch-body').value.trim();
   let overrideCta      = document.getElementById('sch-cta').value.trim();
 
-  if (!direction && mode !== 'photo') {
-    const ph = document.getElementById('prev-headline').value.trim();
-    const pb = document.getElementById('prev-body').value.trim();
-    const pc = document.getElementById('prev-cta').value.trim();
-    if (!ph && !pb) {
-      status.style.color = '#e74c3c';
-      status.textContent = 'Enter a direction, or generate content in the Card Preview tab first.';
-      return;
-    }
-    if (!overrideHeadline) overrideHeadline = ph;
-    if (!overrideBody)     overrideBody     = pb;
-    if (!overrideCta)      overrideCta      = pc;
-    direction = [ph, pb].filter(Boolean).join(' | ');
-  }
-  if (!direction && mode === 'photo') {
+  if (!direction && !overrideHeadline && !overrideBody) {
     status.style.color = '#e74c3c';
-    status.textContent = 'Please enter a direction.';
+    status.textContent = mode === 'photo'
+      ? 'Please enter a direction.'
+      : 'Select a post mode to auto-fill content, or enter a direction.';
     return;
   }
 
