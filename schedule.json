@@ -5,7 +5,7 @@
       "mode": "card_stat",
       "scheduled_time": "2026-06-17T09:00:00",
       "timezone": "America/Phoenix",
-      "status": "pending",
+      "status": "posted",
       "inputs": {
         "direction": "",
         "images": [],
@@ -17,7 +17,8 @@
         "enabled": false,
         "frequency": "weekly",
         "days": []
-      }
+      },
+      "posted_at": "2026-06-17T18:29:02.576602+00:00"
     }
   ]
 }
