@@ -19,6 +19,25 @@
         "days": []
       },
       "posted_at": "2026-06-17T18:29:02.576602+00:00"
+    },
+    {
+      "id": "302f2568-cee3-48a3-8e96-d0edd4cf1953",
+      "mode": "card_atm",
+      "scheduled_time": "2026-06-18T07:00:00",
+      "timezone": "America/Phoenix",
+      "status": "pending",
+      "inputs": {
+        "direction": "",
+        "images": [],
+        "override_headline": "Your Prices Held.Your Margins Didn't.",
+        "override_body": "Supplier costs shift constantly, but most operators update recipe costs once a year at best. BarLedger ties every recipe to live ingredient pricing so your pour cost reflects today, not last January.",
+        "override_cta": "Start your free 14-day trial. Link in bio."
+      },
+      "recurring": {
+        "enabled": false,
+        "frequency": "weekly",
+        "days": []
+      }
     }
   ]
 }
