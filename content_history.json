@@ -71,6 +71,15 @@
       "cta": "Get control of your bar. Link in bio.",
       "pinned": true,
       "timestamp": "2026-06-18T05:54:04Z"
+    },
+    {
+      "id": "bb413c6164a24b688b4c9e48ef12ba29",
+      "eyebrow": "LIQUOR COST DRIFT",
+      "headline": "Your Prices Held.Your Margins Didn't.",
+      "body": "Supplier costs shift constantly, but most operators update recipe costs once a year at best. BarLedger ties every recipe to live ingredient pricing so your pour cost reflects today, not last January.",
+      "cta": "Start your free 14-day trial. Link in bio.",
+      "pinned": false,
+      "timestamp": "2026-06-18T05:58:01Z"
     }
   ]
 }
