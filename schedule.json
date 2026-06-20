@@ -39,6 +39,25 @@
         "days": []
       },
       "posted_at": "2026-06-18T16:18:23.734834+00:00"
+    },
+    {
+      "id": "f7c79696-cb5b-43c5-ad74-030368dc6dd7",
+      "mode": "card_atm",
+      "scheduled_time": "2026-06-20T10:25:00",
+      "timezone": "America/Phoenix",
+      "status": "pending",
+      "inputs": {
+        "direction": "",
+        "images": [],
+        "override_headline": "Every Bottle Accounted For. \\nEvery Dollar Protected.",
+        "override_body": "BarLedger connects what you receive, what you use, and what you sell into one clean picture. Operators who run tight know exactly where their inventory stands at any moment.",
+        "override_cta": "Run a tighter bar. Link in bio."
+      },
+      "recurring": {
+        "enabled": false,
+        "frequency": "weekly",
+        "days": []
+      }
     }
   ]
 }
