@@ -45,7 +45,7 @@
       "mode": "card_atm",
       "scheduled_time": "2026-06-20T10:25:00",
       "timezone": "America/Phoenix",
-      "status": "pending",
+      "status": "cancelled",
       "inputs": {
         "direction": "",
         "images": [],
