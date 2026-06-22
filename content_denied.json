@@ -8,6 +8,15 @@
       "cta": "See where it's going. Link in bio.",
       "reason": "Wrong angle for BarLedger - barledger does not handle comps, voids, it's an inventory tracking system.",
       "timestamp": "2026-06-18T05:57:25Z"
+    },
+    {
+      "id": "d9ec8f829d2d41c18208acdb814c2cbc",
+      "eyebrow": "DEAD STOCK DRAIN",
+      "headline": "Slow Movers Are CostingMore Than Shelf Space.",
+      "body": "Bottles that sit 60 or 90 days tie up real cash and quietly inflate your pour cost every period they go unaddressed. BarLedger flags slow-moving inventory so you can move it, promote it, or stop ordering it.",
+      "cta": "Stop letting stock bleed you. Link in bio.",
+      "reason": "Wrong angle for BarLedger - we do not track how long items have been on the shelf",
+      "timestamp": "2026-06-22T18:58:33Z"
     }
   ]
 }
