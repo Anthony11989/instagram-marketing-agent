@@ -114,7 +114,7 @@
       "headline": "What You Ordered \\nand \\n What You Got Are Not the Same.",
       "body": "Short pours, missing bottles, and invoice errors at receiving can quietly strip 3 to 5% from your margins before a single drink is poured. BarLedger ties every delivery to your purchase order so discrepancies surface immediately.",
       "cta": "Stop paying for product you never got. Link in bio.",
-      "pinned": false,
+      "pinned": true,
       "timestamp": "2026-06-22T18:59:26Z"
     }
   ]
