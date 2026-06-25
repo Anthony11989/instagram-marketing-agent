@@ -116,6 +116,15 @@
       "cta": "Stop paying for product you never got. Link in bio.",
       "pinned": true,
       "timestamp": "2026-06-22T18:59:26Z"
+    },
+    {
+      "id": "440e6dc480ea42ad8893bfa004c1e6a3",
+      "eyebrow": "VARIANCE BLIND SPOT",
+      "headline": "The Shrink Isn't Random.\\nIt Has a Pattern.",
+      "body": "Bars that count manually miss the same gaps every cycle. BarLedger surfaces recurring variances by category, location, and period so you can see exactly where the pattern lives and stop it.",
+      "cta": "Find your pattern before it costs more. Link in bio.",
+      "pinned": false,
+      "timestamp": "2026-06-25T16:05:39Z"
     }
   ]
 }
